@@ -1,0 +1,16 @@
+{
+  "name": "mindfit",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "mobile:start": "pnpm --filter mobile start",
+    "mobile:android": "pnpm --filter mobile android",
+    "mobile:ios": "pnpm --filter mobile ios",
+    "mobile:web": "pnpm --filter mobile web",
+    "mobile:test": "pnpm --filter mobile test",
+    "mobile:lint": "pnpm --filter mobile lint"
+  },
+  "devDependencies": {
+    "@expo/cli": "^0.24.20"
+  }
+} 
