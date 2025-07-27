@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Dimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -44,16 +44,12 @@ const DAILY_BOOSTS: DailyBoost[] = [
 ];
 
 const DailyBoostCard: React.FC = () => {
-  const [isExpanded, setIsExpanded] = useState(true);
   const [currentBoost, setCurrentBoost] = useState<DailyBoost | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const expandAnim = new Animated.Value(1);
-  const fadeAnim = new Animated.Value(0);
+  const [showFullScreen, setShowFullScreen] = useState(false);
 
   useEffect(() => {
     loadDailyBoost();
-    loadExpandedState();
   }, []);
 
   const loadDailyBoost = async () => {
@@ -81,61 +77,13 @@ const DailyBoostCard: React.FC = () => {
     }
   };
 
-  const loadExpandedState = async () => {
-    try {
-      const stored = await AsyncStorage.getItem('dailyBoostExpanded');
-      if (stored !== null) {
-        const expanded = JSON.parse(stored);
-        setIsExpanded(expanded);
-        if (!expanded) {
-          expandAnim.setValue(0.5);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading expanded state:', error);
-    }
+  const handleCardPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowFullScreen(true);
   };
 
-  const toggleExpanded = async () => {
-    const newExpanded = !isExpanded;
-    setIsExpanded(newExpanded);
-    
-    // Save state
-    try {
-      await AsyncStorage.setItem('dailyBoostExpanded', JSON.stringify(newExpanded));
-    } catch (error) {
-      console.error('Error saving expanded state:', error);
-    }
-
-    // Animate
-    if (newExpanded) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      Animated.parallel([
-        Animated.timing(expandAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(expandAnim, {
-          toValue: 0.5,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    }
+  const handleCloseFullScreen = () => {
+    setShowFullScreen(false);
   };
 
   if (isLoading) {
@@ -159,114 +107,209 @@ const DailyBoostCard: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <Animated.View 
-        style={[
-          styles.card,
-          {
-            height: expandAnim.interpolate({
-              inputRange: [0.5, 1],
-              outputRange: [80, 160],
-            }),
-          }
-        ]}
-        accessible={true}
-        accessibilityLabel="Daily boost card, tap to expand"
-        accessibilityRole="button"
-      >
+    <>
+      <View style={styles.container}>
         <TouchableOpacity 
-          style={styles.touchable}
-          onPress={toggleExpanded}
+          style={styles.card}
+          onPress={handleCardPress}
           activeOpacity={0.8}
+          accessible={true}
+          accessibilityLabel="Daily boost card, tap to view full message"
+          accessibilityRole="button"
         >
-          <View style={styles.header}>
-            <Text style={styles.theme}>{currentBoost.theme}</Text>
-            <Text style={styles.arrow}>{isExpanded ? '▼' : '▶'}</Text>
+          <Text style={styles.theme}>{currentBoost.theme}</Text>
+          <Text style={styles.versePreview} numberOfLines={3} ellipsizeMode="tail">
+            "{currentBoost.verse}"
+          </Text>
+          <Text style={styles.verseReference}>{currentBoost.verseReference}</Text>
+          <Text style={styles.tapHint}>Tap for more</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        visible={showFullScreen}
+        animationType="fade"
+        presentationStyle="fullScreen"
+      >
+        <View style={styles.fullScreenContainer}>
+          {/* Peaceful gradient background */}
+          <View style={styles.backgroundGradient}>
+            <View style={styles.backgroundPattern} />
           </View>
           
-          {isExpanded && (
-            <Animated.View 
-              style={[
-                styles.content,
-                {
-                  opacity: fadeAnim,
-                }
-              ]}
-            >
-              <Text style={styles.message}>{currentBoost.message}</Text>
-              <Text style={styles.verse}>{currentBoost.verse}</Text>
-              <Text style={styles.verseReference}>{currentBoost.verseReference}</Text>
-            </Animated.View>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
-    </View>
+          {/* Close button */}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={handleCloseFullScreen}
+            accessible={true}
+            accessibilityLabel="Close daily boost"
+            accessibilityRole="button"
+          >
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+
+          {/* Content */}
+          <View style={styles.fullScreenContent}>
+            <Text style={styles.fullScreenTheme}>{currentBoost.theme}</Text>
+            <Text style={styles.fullScreenMessage}>{currentBoost.message}</Text>
+            <View style={styles.verseContainer}>
+              <Text style={styles.fullScreenVerse}>"{currentBoost.verse}"</Text>
+              <Text style={styles.fullScreenVerseReference}>— {currentBoost.verseReference}</Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 };
+
+const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
     marginBottom: 20,
   },
   card: {
-    backgroundColor: '#2C2C2E',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    padding: 24,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    overflow: 'hidden',
-  },
-  touchable: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+    minHeight: 140,
   },
   theme: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
     color: '#FFFFFF',
-    flex: 1,
+    marginBottom: 12,
   },
-  arrow: {
-    fontSize: 16,
-    color: '#8E8E93',
-    marginLeft: 8,
-  },
-  content: {
-    marginTop: 8,
-  },
-  message: {
+  versePreview: {
     fontSize: 16,
     color: '#EBEBF5',
     lineHeight: 24,
-    marginBottom: 12,
-  },
-  verse: {
-    fontSize: 14,
-    color: '#EBEBF5',
-    fontStyle: 'italic',
-    lineHeight: 20,
     marginBottom: 8,
+    fontStyle: 'italic',
   },
   verseReference: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#8E8E93',
     fontWeight: '500',
+    marginBottom: 8,
+  },
+  tapHint: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'right',
+    fontStyle: 'italic',
   },
   loadingText: {
     fontSize: 16,
     color: '#8E8E93',
     textAlign: 'center',
+  },
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#1a1a2e',
+  },
+  backgroundPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    opacity: 0.1,
+    // Create a subtle pattern effect
+    backgroundImage: 'radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%)',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  fullScreenContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingTop: 120,
+    paddingBottom: 60,
+  },
+  fullScreenTheme: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 40,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  fullScreenMessage: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 32,
+    marginBottom: 40,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  verseContainer: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: width * 0.8,
+  },
+  fullScreenVerse: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 28,
+    marginBottom: 12,
+    fontStyle: 'italic',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  fullScreenVerseReference: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    opacity: 0.9,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
 
