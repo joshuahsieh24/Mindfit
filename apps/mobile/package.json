@@ -21,6 +21,7 @@
     "@supabase/supabase-js": "^2.52.1",
     "expo": "~53.0.20",
     "expo-haptics": "^14.1.4",
+    "expo-notifications": "^0.31.4",
     "expo-router": "^5.1.4",
     "expo-secure-store": "^14.2.3",
     "expo-status-bar": "~2.2.3",
